@@ -9,6 +9,7 @@ const expenseRoutes = require('./routes/expenses');
 const insightRoutes = require('./routes/insights');
 const aiRoutes = require('./routes/ai');
 const goalRoutes = require('./routes/goals');
+const whatIfRoutes = require('./routes/whatif');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -21,6 +22,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/insights', insightRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/goals', goalRoutes);
+app.use('/api/what-if', whatIfRoutes);
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'SpendWise backend up' });

@@ -8,6 +8,7 @@ const navLinks = [
   { href: "/expenses/add", label: "Add Expense" },
   { href: "/insights", label: "Insights" },
   { href: "/goals", label: "Goals" },
+  { href: "/what-if", label: "What-If" },
   { href: "/settings", label: "Settings" },
 ];
 
