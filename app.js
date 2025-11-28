@@ -1,0 +1,43 @@
+const express = require('express');
+const cors = require('cors');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+const expenseRoutes = require('./routes/expenses');
+const insightRoutes = require('./routes/insights');
+const aiRoutes = require('./routes/ai');
+const goalRoutes = require('./routes/goals');
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/spendwise';
+
+app.use(cors());
+app.use(express.json());
+
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/insights', insightRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/goals', goalRoutes);
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'SpendWise backend up' });
+});
+
+mongoose
+  .connect(MONGO_URI)
+  .then(() => {
+    console.log('[backend] MongoDB connected');
+    app.listen(PORT, () => {
+      console.log(`[backend] Server listening on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error('[backend] Mongo connection failed', error);
+    process.exit(1);
+  });
+
+module.exports = app;
+
