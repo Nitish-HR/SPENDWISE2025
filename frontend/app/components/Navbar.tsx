@@ -6,10 +6,14 @@ import { usePathname } from "next/navigation";
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/expenses/add", label: "Add Expense" },
+  { href: "/income", label: "Income" },
+  { href: "/investment", label: "Investment" },
+  { href: "/loan", label: "Loan Manager" },
+  { href: "/buffer", label: "Buffer" },
   { href: "/insights", label: "Insights" },
   { href: "/goals", label: "Goals" },
   { href: "/what-if", label: "What-If" },
-  { href: "/settings", label: "Settings" },
+  { href: "/learn", label: "Learn" },
 ];
 
 export default function Navbar() {

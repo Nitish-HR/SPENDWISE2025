@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getGoals, deleteGoal } from "@/lib/api";
 import GoalCard from "@/app/components/goals/GoalCard";
 import DeleteConfirmModal from "@/app/components/goals/DeleteConfirmModal";
+import GoalsAchievements from "@/app/components/goals/GoalsAchievements";
 
 interface Goal {
   _id: string;
@@ -138,6 +139,9 @@ export default function GoalsPage() {
             <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
           </motion.div>
         )}
+
+        {/* Achievements Section */}
+        <GoalsAchievements />
 
         {goals.length === 0 && !loading ? (
           <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-12 text-center">

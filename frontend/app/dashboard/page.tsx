@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { generateAIInsight, getExpenses, getLatestInsights } from "@/lib/api";
+import { generateAIInsight, getExpenses, getLatestInsights, getIncome } from "@/lib/api";
 import StatCard from "@/app/components/dashboard/StatCard";
 import InsightCard from "@/app/components/dashboard/InsightCard";
 import ExpenseList from "@/app/components/dashboard/ExpenseList";
+import Achievements from "@/app/components/Achievements";
 
 interface Expense {
   _id?: string;
@@ -31,8 +32,16 @@ interface Insight {
 
 const userId = process.env.NEXT_PUBLIC_DEFAULT_USER || "test-user-1";
 
+interface Income {
+  _id?: string;
+  amount?: number;
+  date?: string;
+  source?: string;
+}
+
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [insight, setInsight] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +53,14 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [expenseData, insightData] = await Promise.all([
+      const [expenseData, incomeData, insightData] = await Promise.all([
         getExpenses(userId),
+        getIncome(userId),
         getLatestInsights(userId),
       ]);
 
       setExpenses(Array.isArray(expenseData) ? expenseData : []);
+      setIncomes(Array.isArray(incomeData) ? incomeData : []);
       setInsight(insightData || null);
     } catch (err) {
       const message =
@@ -104,6 +115,39 @@ export default function DashboardPage() {
       return sum;
     }, 0);
 
+    // Income calculations (last 30 days)
+    const lastMonthIncome = incomes.reduce((sum, income) => {
+      if (!income.date) return sum;
+      const incomeDate = new Date(income.date);
+      if (incomeDate >= thirtyDaysAgo) {
+        return sum + (income.amount || 0);
+      }
+      return sum;
+    }, 0);
+
+    // Calculate income volatility (variance)
+    const last30DaysIncomes = incomes.filter((income) => {
+      if (!income.date) return false;
+      const incomeDate = new Date(income.date);
+      return incomeDate >= thirtyDaysAgo;
+    });
+
+    let volatilityScore = 0;
+    if (last30DaysIncomes.length > 1) {
+      const incomeAmounts = last30DaysIncomes.map((i) => i.amount || 0);
+      const avgIncome = lastMonthIncome / last30DaysIncomes.length;
+      const variance =
+        incomeAmounts.reduce((sum, amt) => sum + Math.pow(amt - avgIncome, 2), 0) /
+        incomeAmounts.length;
+      const stdDev = Math.sqrt(variance);
+      volatilityScore = avgIncome > 0 ? Math.min(100, (stdDev / avgIncome) * 100) : 0;
+    }
+
+    // Savings ratio = (income - expenses) / income
+    const savingsRatio = lastMonthIncome > 0 
+      ? ((lastMonthIncome - lastMonthSpend) / lastMonthIncome) * 100 
+      : 0;
+
     const lastOverview =
       insight?.overview ||
       insight?.prediction ||
@@ -113,14 +157,17 @@ export default function DashboardPage() {
       totalExpenses: totals,
       lastMonthSpend,
       foodSpend,
+      lastMonthIncome,
+      volatilityScore: Math.round(volatilityScore * 100) / 100,
+      savingsRatio: Math.round(savingsRatio * 100) / 100,
       lastOverview,
     };
-  }, [expenses, insight]);
+  }, [expenses, incomes, insight]);
 
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(amount);
 
   if (error && !loading) {
@@ -161,9 +208,27 @@ export default function DashboardPage() {
           delay={0.1}
         />
         <StatCard
+          title="Total Income (Last 30 Days)"
+          value={formatCurrency(stats.lastMonthIncome)}
+          delay={0.2}
+        />
+        <StatCard
+          title="Savings Ratio"
+          value={`${stats.savingsRatio >= 0 ? '+' : ''}${stats.savingsRatio.toFixed(1)}%`}
+          delay={0.3}
+        />
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <StatCard
           title="Food Spend"
           value={formatCurrency(stats.foodSpend)}
-          delay={0.2}
+          delay={0.4}
+        />
+        <StatCard
+          title="Income Volatility"
+          value={`${stats.volatilityScore.toFixed(1)}%`}
+          delay={0.5}
         />
         <StatCard
           title="Last AI Insight"
@@ -172,7 +237,7 @@ export default function DashboardPage() {
               ? `${stats.lastOverview.slice(0, 48)}…`
               : stats.lastOverview
           }
-          delay={0.3}
+          delay={0.6}
         />
       </section>
 
@@ -183,7 +248,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <ExpenseList expenses={expenses} loading={loading} />
+            <ExpenseList expenses={expenses} loading={loading} onUpdate={fetchDashboardData} />
           </motion.div>
         </div>
         <motion.div
@@ -214,6 +279,7 @@ export default function DashboardPage() {
             )}
           </div>
           <InsightCard insight={insight} loading={loading} />
+          <Achievements />
         </motion.div>
       </section>
     </motion.div>

@@ -18,6 +18,8 @@ if (mongoose.models && mongoose.models.Insight) {
     savingsPlan: { type: String },
     microTip: { type: String },
     prediction: { type: String },
+    type: { type: String, default: 'daily', enum: ['daily', 'weekly'] },
+    memory: { type: mongoose.Schema.Types.Mixed, default: {} },
     raw: { type: mongoose.Schema.Types.Mixed }
   }, { timestamps: true });
 

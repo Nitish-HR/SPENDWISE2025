@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { generateAIInsight, getInsightsHistory } from "@/lib/api";
+import { generateAIInsight, getInsightsHistory, getInsightsTimeline } from "@/lib/api";
+import InsightTimeline from "@/app/components/insights/InsightTimeline";
 
 interface Insight {
   _id?: string;
@@ -13,26 +14,27 @@ interface Insight {
   createdAt?: string;
 }
 
+interface TimelineInsight {
+  _id?: string;
+  overview?: string;
+  prediction?: string;
+  savingsPlan?: string;
+  microTip?: string;
+  overspendAreas?: Array<{
+    category: string;
+    amount: number;
+    why?: string;
+  }>;
+  createdAt?: string;
+}
+
 const userId = process.env.NEXT_PUBLIC_DEFAULT_USER || "test-user-1";
-
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
 
 export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [timeline, setTimeline] = useState<TimelineInsight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timelineLoading, setTimelineLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -53,9 +55,23 @@ export default function InsightsPage() {
     }
   }, [userId]);
 
+  const fetchTimeline = useCallback(async () => {
+    setTimelineLoading(true);
+    try {
+      const data = await getInsightsTimeline(userId);
+      setTimeline(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load timeline:", err);
+      // Don't set error state for timeline, just log it
+    } finally {
+      setTimelineLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     fetchInsights();
-  }, [fetchInsights]);
+    fetchTimeline();
+  }, [fetchInsights, fetchTimeline]);
 
   const handleGenerateInsight = async () => {
     if (!userId) return;
@@ -63,7 +79,7 @@ export default function InsightsPage() {
     setGenerateError(null);
     try {
       await generateAIInsight(userId);
-      await fetchInsights();
+      await Promise.all([fetchInsights(), fetchTimeline()]);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to generate insight";
@@ -72,6 +88,8 @@ export default function InsightsPage() {
       setGenerating(false);
     }
   };
+
+  const latestInsight = insights.length > 0 ? insights[0] : null;
 
   return (
     <motion.div
@@ -117,133 +135,79 @@ export default function InsightsPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
-          <p className="text-gray-600 dark:text-gray-400">Loading insights...</p>
-        </div>
-      ) : insights.length === 0 ? (
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
-          <p className="text-gray-600 dark:text-gray-400">
-            No insights available yet.
-          </p>
-        </div>
-      ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="space-y-6"
-        >
-          {insights.map((insight, index) => (
-            <motion.div
-              key={insight._id || index}
-              variants={item}
-              className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 space-y-4"
-            >
-              {insight.overview && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Overview
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">
-                    {insight.overview}
-                  </p>
-                </div>
-              )}
+      {/* Latest Insight Section */}
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Latest Insight
+        </h2>
+        {loading ? (
+          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+            <p className="text-gray-600 dark:text-gray-400">Loading latest insight...</p>
+          </div>
+        ) : latestInsight ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 space-y-4"
+          >
+            {latestInsight.overview && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  Overview
+                </h3>
+                <p className="text-gray-900 dark:text-gray-100">
+                  {latestInsight.overview}
+                </p>
+              </div>
+            )}
 
-              {insight.prediction && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Prediction
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">
-                    {insight.prediction}
-                  </p>
-                </div>
-              )}
+            {latestInsight.prediction && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  Prediction
+                </h3>
+                <p className="text-gray-900 dark:text-gray-100">
+                  {latestInsight.prediction}
+                </p>
+              </div>
+            )}
 
-              {insight.savingsPlan && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Savings Plan
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">
-                    {insight.savingsPlan}
-                  </p>
-                </div>
-              )}
+            {latestInsight.savingsPlan && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  Savings Plan
+                </h3>
+                <p className="text-gray-900 dark:text-gray-100">
+                  {latestInsight.savingsPlan}
+                </p>
+              </div>
+            )}
 
-              {insight.microTip && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Micro Tip
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">
-                    {insight.microTip}
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
+            {latestInsight.microTip && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  Micro Tip
+                </h3>
+                <p className="text-gray-900 dark:text-gray-100">
+                  {latestInsight.microTip}
+                </p>
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+            <p className="text-gray-600 dark:text-gray-400">
+              No insights available yet. Generate your first insight to get started.
+            </p>
+          </div>
+        )}
+      </section>
 
-      {insights.length === 0 ? (
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
-          <p className="text-gray-600 dark:text-gray-400">No insights available yet.</p>
-        </div>
-      ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="space-y-6"
-        >
-          {insights.map((insight, index) => (
-            <motion.div
-              key={insight._id || index}
-              variants={item}
-              className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 space-y-4"
-            >
-              {insight.overview && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Overview
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">{insight.overview}</p>
-                </div>
-              )}
-
-              {insight.prediction && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Prediction
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">{insight.prediction}</p>
-                </div>
-              )}
-
-              {insight.savingsPlan && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Savings Plan
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">{insight.savingsPlan}</p>
-                </div>
-              )}
-
-              {insight.microTip && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    Micro Tip
-                  </h3>
-                  <p className="text-gray-900 dark:text-gray-100">{insight.microTip}</p>
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
+      {/* AI Timeline Section */}
+      <section>
+        <InsightTimeline timeline={timeline} loading={timelineLoading} />
+      </section>
     </motion.div>
   );
 }
