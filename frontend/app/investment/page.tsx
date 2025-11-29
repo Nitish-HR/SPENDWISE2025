@@ -11,11 +11,17 @@ interface SIPResults {
   finalCorpus: number;
 }
 
+interface ProjectionPoint {
+  year: number;
+  value: number;
+}
+
 export default function InvestmentPage() {
   const [monthlyInvestment, setMonthlyInvestment] = useState("");
   const [expectedReturn, setExpectedReturn] = useState("");
   const [duration, setDuration] = useState("");
   const [results, setResults] = useState<SIPResults | null>(null);
+  const [projectionData, setProjectionData] = useState<ProjectionPoint[]>([]);
   const [microTip, setMicroTip] = useState<string | null>(null);
   const [tipLoading, setTipLoading] = useState(false);
   const [tipError, setTipError] = useState<string | null>(null);
@@ -66,6 +72,26 @@ export default function InvestmentPage() {
     };
 
     setResults(calculatedResults);
+    // Build projection data per year (for up to 20 years)
+    const maxYears = Math.min(20, Math.max(1, Math.round(years)));
+    const points: ProjectionPoint[] = [];
+
+    for (let y = 1; y <= maxYears; y++) {
+      const ny = y * 12;
+      let FVy = 0;
+      if (r === 0) {
+        FVy = P * ny;
+      } else {
+        const numeratorY = Math.pow(1 + r, ny) - 1;
+        FVy = P * (numeratorY / r) * (1 + r);
+      }
+      points.push({
+        year: y,
+        value: Math.round(FVy),
+      });
+    }
+    setProjectionData(points);
+
     setCalculating(false);
     setMicroTip(null);
     setTipError(null);
@@ -107,20 +133,6 @@ export default function InvestmentPage() {
     }).format(amount);
   };
 
-  // Prepare chart data
-  const chartData = results
-    ? [
-        {
-          name: "Invested",
-          amount: results.totalInvested,
-        },
-        {
-          name: "Returns",
-          amount: results.estimatedReturns,
-        },
-      ]
-    : [];
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -137,17 +149,23 @@ export default function InvestmentPage() {
         </p>
       </div>
 
+      {/* Main layout: Calculator left, Projection chart right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Calculator Form */}
+        {/* Calculator Form + Summary */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
           className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6"
         >
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Investment Details
-          </h2>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xl">
+              📈
+            </span>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              SIP Calculator
+            </h2>
+          </div>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -207,98 +225,85 @@ export default function InvestmentPage() {
             <button
               type="submit"
               disabled={calculating}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
             >
               {calculating ? "Calculating..." : "Calculate Returns"}
             </button>
           </form>
-        </motion.div>
 
-        {/* Results */}
-        {results && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6"
-          >
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Results
-            </h2>
-            <div className="space-y-4">
+          {/* Quick summary stats below inputs */}
+          {results && (
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Total Invested
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-gray-600 dark:text-gray-400 mb-1">Total Invested</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {formatCurrency(results.totalInvested)}
                 </p>
               </div>
-
               <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Estimated Returns
-                </p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <p className="text-gray-600 dark:text-gray-400 mb-1">Estimated Returns</p>
+                <p className="text-lg font-semibold text-green-600 dark:text-green-400">
                   {formatCurrency(results.estimatedReturns)}
                 </p>
               </div>
-
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Final Corpus
-                </p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <p className="text-gray-600 dark:text-gray-400 mb-1">Projected Value</p>
+                <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                   {formatCurrency(results.finalCorpus)}
                 </p>
               </div>
             </div>
-          </motion.div>
-        )}
-      </div>
+          )}
+        </motion.div>
 
-      {/* Chart */}
-      {results && (
+        {/* SIP Growth Projection Chart (right side) */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mt-6 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6"
         >
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Invested vs Returns
+            SIP Growth Projection
           </h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="name"
-                stroke="#6b7280"
-                className="dark:text-gray-400"
-              />
-              <YAxis
-                stroke="#6b7280"
-                tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                formatter={(value: number) => formatCurrency(value)}
-                contentStyle={{
-                  backgroundColor: "white",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "8px",
-                }}
-              />
-              <Legend />
-              <Bar
-                dataKey="amount"
-                fill="#3b82f6"
-                name="Amount (₹)"
-                radius={[8, 8, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          {projectionData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={projectionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="year"
+                  stroke="#6b7280"
+                  tickFormatter={(value) => value.toString()}
+                />
+                <YAxis
+                  stroke="#6b7280"
+                  tickFormatter={(value) => `₹${(value / 100000).toFixed(1)}L`}
+                />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  labelFormatter={(label) => `Year ${label}`}
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Legend />
+                <Bar
+                  dataKey="value"
+                  name="Projected Value"
+                  fill="#3b82f6"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[320px] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+              Enter SIP details and calculate to see the growth projection.
+            </div>
+          )}
         </motion.div>
-      )}
+      </div>
 
       {/* AI Micro-Tip */}
       {results && (

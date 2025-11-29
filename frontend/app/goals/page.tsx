@@ -116,17 +116,17 @@ export default function GoalsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Goals
+              Savings Goals
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
-              Track your savings goals and progress
-            </p>
           </div>
           <Link
             href="/goals/new"
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors shadow-sm hover:shadow-md"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors shadow-sm hover:shadow-md"
           >
-            + Add Goal
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create New Goal
           </Link>
         </div>
 

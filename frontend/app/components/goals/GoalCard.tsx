@@ -34,9 +34,10 @@ export default function GoalCard({
   );
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -44,13 +45,22 @@ export default function GoalCard({
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
         year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
       });
     } catch {
       return dateString;
     }
+  };
+
+  const calculateDailySavings = () => {
+    const remaining = goal.targetAmount - goal.savedAmount;
+    if (remaining <= 0) return 0;
+    const deadline = new Date(goal.deadline);
+    const today = new Date();
+    const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return daysLeft > 0 ? remaining / daysLeft : 0;
   };
 
   const getProgressColor = () => {
@@ -58,6 +68,8 @@ export default function GoalCard({
     if (progress >= 50) return "bg-blue-500";
     return "bg-yellow-500";
   };
+
+  const dailySavings = calculateDailySavings();
 
   return (
     <motion.div
@@ -67,13 +79,13 @@ export default function GoalCard({
       className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 space-y-4 hover:shadow-lg transition-shadow"
     >
       <div className="flex items-start justify-between">
-        <div className="flex-1">
+        <div className="flex items-center gap-2 flex-1">
+          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {goal.title}
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Deadline: {formatDate(goal.deadline)}
-          </p>
         </div>
         <button
           onClick={() => onDelete(goal._id)}
@@ -101,38 +113,52 @@ export default function GoalCard({
         </button>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">Progress</span>
-          <span className="font-medium text-gray-900 dark:text-gray-100">
-            {progress}%
-          </span>
+      <div className="space-y-3">
+        <div>
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-600 dark:text-gray-400">Progress</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">
+              {progress}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5, delay: delay + 0.1 }}
+              className={`h-2.5 rounded-full ${getProgressColor()}`}
+            />
+          </div>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5, delay: delay + 0.1 }}
-            className={`h-2.5 rounded-full ${getProgressColor()}`}
-          />
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">
-            {formatCurrency(goal.savedAmount)}
-          </span>
-          <span className="text-gray-600 dark:text-gray-400">
-            of {formatCurrency(goal.targetAmount)}
-          </span>
-        </div>
-      </div>
 
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-800 flex gap-2">
-        <Link
-          href={`/goals/${goal._id}/edit`}
-          className="flex-1 text-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors"
-        >
-          Edit
-        </Link>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-gray-600 dark:text-gray-400 mb-1">Current</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">
+              {formatCurrency(goal.savedAmount)}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600 dark:text-gray-400 mb-1">Target</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">
+              {formatCurrency(goal.targetAmount)}
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-gray-600 dark:text-gray-400 mb-1 text-sm">Daily Savings Needed</p>
+          <p className={`font-semibold ${dailySavings > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100'}`}>
+            {formatCurrency(dailySavings)}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-gray-600 dark:text-gray-400 mb-1 text-sm">Deadline</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">
+            {formatDate(goal.deadline)}
+          </p>
+        </div>
       </div>
     </motion.div>
   );

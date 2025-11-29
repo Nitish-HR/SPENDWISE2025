@@ -7,6 +7,7 @@ import StatCard from "@/app/components/dashboard/StatCard";
 import InsightCard from "@/app/components/dashboard/InsightCard";
 import ExpenseList from "@/app/components/dashboard/ExpenseList";
 import Achievements from "@/app/components/Achievements";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 interface Expense {
   _id?: string;
@@ -170,6 +171,64 @@ export default function DashboardPage() {
       currency: "INR",
     }).format(amount);
 
+  // Pie chart data
+  const pieChartData = useMemo(() => {
+    const byCategory: Record<string, number> = {};
+    expenses.forEach(exp => {
+      const cat = exp.category || 'Other';
+      byCategory[cat] = (byCategory[cat] || 0) + (exp.amount || 0);
+    });
+    
+    const data = Object.entries(byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+    
+    const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#ef4444', '#14b8a6'];
+    const total = data.reduce((sum, e) => sum + e.value, 0);
+    
+    return { pieData: data, colors, total };
+  }, [expenses]);
+
+  // Line chart data with category breakdown
+  const lineChartData = useMemo(() => {
+    const now = new Date();
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    // Get all unique categories
+    const categories = Array.from(new Set(expenses.map(exp => exp.category || 'Other')));
+    const categoryColors: Record<string, string> = {
+      Food: '#3b82f6',
+      Transport: '#8b5cf6',
+      Entertainment: '#ec4899',
+      Bills: '#f59e0b',
+      Shopping: '#10b981',
+      Other: '#6366f1',
+    };
+    
+    const chartData = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - (6 - i));
+      const dayData: any = {
+        day: days[date.getDay()],
+      };
+      
+      // Calculate spending per category for this day
+      categories.forEach(cat => {
+        dayData[cat] = expenses
+          .filter(exp => {
+            if (!exp.date || (exp.category || 'Other') !== cat) return false;
+            const expDate = new Date(exp.date);
+            return expDate.toDateString() === date.toDateString();
+          })
+          .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      });
+      
+      return dayData;
+    });
+
+    return { chartData, categories, categoryColors };
+  }, [expenses]);
+
   if (error && !loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -187,58 +246,212 @@ export default function DashboardPage() {
       transition={{ duration: 0.5 }}
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
     >
-      <header>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Dashboard
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          Welcome back, Coach!
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
-          Overview of your recent spending, insights, and trends.
+        <p className="text-gray-500 dark:text-gray-400">
+          Your financial overview for this month.
         </p>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Expenses"
-          value={formatCurrency(stats.totalExpenses)}
-          delay={0}
-        />
-        <StatCard
-          title="Last 30 Days"
-          value={formatCurrency(stats.lastMonthSpend)}
-          delay={0.1}
-        />
-        <StatCard
-          title="Total Income (Last 30 Days)"
-          value={formatCurrency(stats.lastMonthIncome)}
-          delay={0.2}
-        />
-        <StatCard
-          title="Savings Ratio"
-          value={`${stats.savingsRatio >= 0 ? '+' : ''}${stats.savingsRatio.toFixed(1)}%`}
-          delay={0.3}
-        />
+      {/* Key Metrics Cards */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Income</h3>
+            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            {formatCurrency(stats.lastMonthIncome)}
+          </p>
+          <p className="text-sm text-green-600 dark:text-green-400">
+            +12% from last month
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Spent</h3>
+            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            {formatCurrency(stats.lastMonthSpend)}
+          </p>
+          <p className="text-sm text-red-600 dark:text-red-400">
+            -8% from last month
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Monthly Savings</h3>
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            {formatCurrency(stats.lastMonthIncome - stats.lastMonthSpend)}
+          </p>
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            {stats.savingsRatio.toFixed(1)}% of income saved
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Survival Fund</h3>
+            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            2.5 months
+          </p>
+          <p className="text-sm text-green-600 dark:text-green-400">
+            Goal: 3 months
+          </p>
+        </motion.div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard
-          title="Food Spend"
-          value={formatCurrency(stats.foodSpend)}
-          delay={0.4}
-        />
-        <StatCard
-          title="Income Volatility"
-          value={`${stats.volatilityScore.toFixed(1)}%`}
-          delay={0.5}
-        />
-        <StatCard
-          title="Last AI Insight"
-          value={
-            stats.lastOverview.length > 48
-              ? `${stats.lastOverview.slice(0, 48)}…`
-              : stats.lastOverview
-          }
-          delay={0.6}
-        />
+      {/* Charts Section */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Spending Trend Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6"
+        >
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Spending Trend
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={lineChartData.chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+              <XAxis dataKey="day" stroke="#6b7280" className="dark:stroke-gray-400" />
+              <YAxis stroke="#6b7280" className="dark:stroke-gray-400" tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
+              <Tooltip
+                formatter={(value: number) => `₹${value.toFixed(0)}`}
+                contentStyle={{
+                  backgroundColor: "white",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                }}
+              />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="line"
+              />
+              {lineChartData.categories.map((cat: string) => (
+                <Line
+                  key={cat}
+                  type="monotone"
+                  dataKey={cat}
+                  stroke={lineChartData.categoryColors[cat] || '#6366f1'}
+                  strokeWidth={2}
+                  dot={{ fill: lineChartData.categoryColors[cat] || '#6366f1', r: 4 }}
+                  name={cat}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Category Breakdown Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6"
+        >
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Category Breakdown
+          </h2>
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={pieChartData.pieData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {pieChartData.pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={pieChartData.colors[index % pieChartData.colors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      `₹${value.toFixed(0)}`,
+                      name
+                    ]}
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            
+            {/* Organized Legend */}
+            <div className="flex flex-col justify-center gap-2 lg:min-w-[220px]">
+              {pieChartData.pieData.map((entry, index) => {
+                const percentage = pieChartData.total > 0 ? ((entry.value / pieChartData.total) * 100).toFixed(1) : '0';
+                return (
+                  <div
+                    key={entry.name}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: pieChartData.colors[index % pieChartData.colors.length] }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {entry.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {percentage}% • {formatCurrency(entry.value)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -246,7 +459,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.6 }}
           >
             <ExpenseList expenses={expenses} loading={loading} onUpdate={fetchDashboardData} />
           </motion.div>

@@ -2,71 +2,75 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getIncome, addIncome, updateIncome, deleteIncome } from "@/lib/api";
+import Link from "next/link";
+import { getExpenses, updateExpense, deleteExpense } from "@/lib/api";
 
-interface Income {
+interface Expense {
   _id?: string;
+  category?: string;
   amount?: number;
   date?: string;
-  source?: string;
-  createdAt?: string;
+  description?: string;
 }
 
 const userId = process.env.NEXT_PUBLIC_DEFAULT_USER || "test-user-1";
 
-const sourceColors: Record<string, string> = {
-  Salary: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  Freelance: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  Business: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  Investment: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+const categories = ["Food", "Transport", "Entertainment", "Bills", "Shopping", "Other"];
+
+const categoryColors: Record<string, string> = {
+  Food: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  Transport: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  Entertainment: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400",
+  Bills: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  Shopping: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   Other: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
 };
 
-export default function IncomePage() {
-  const [incomes, setIncomes] = useState<Income[]>([]);
+export default function ExpensesPage() {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [editForm, setEditForm] = useState({
+    category: "",
     amount: "",
-    date: new Date().toISOString().split("T")[0],
-    source: "",
+    date: "",
+    description: "",
   });
-  const [formLoading, setFormLoading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
-  const fetchIncomes = useCallback(async () => {
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getIncome(userId);
-      setIncomes(Array.isArray(data) ? data : []);
+      const data = await getExpenses(userId);
+      setExpenses(Array.isArray(data) ? data : []);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to load income";
+        err instanceof Error ? err.message : "Failed to load expenses";
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
-    fetchIncomes();
-  }, [fetchIncomes]);
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const totalThisMonth = useMemo(() => {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    return incomes
-      .filter((income) => {
-        if (!income.date) return false;
-        const incomeDate = new Date(income.date);
-        return incomeDate >= firstDayOfMonth;
+    return expenses
+      .filter((exp) => {
+        if (!exp.date) return false;
+        const expDate = new Date(exp.date);
+        return expDate >= firstDayOfMonth;
       })
-      .reduce((sum, income) => sum + (income.amount || 0), 0);
-  }, [incomes]);
+      .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+  }, [expenses]);
 
   const formatCurrency = (amount?: number) => {
     if (amount === undefined || amount === null) return "₹0";
@@ -87,75 +91,52 @@ export default function IncomePage() {
     }
   };
 
-  const handleAdd = () => {
-    setFormData({
-      amount: "",
-      date: new Date().toISOString().split("T")[0],
-      source: "",
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    setEditForm({
+      category: expense.category || "",
+      amount: expense.amount?.toString() || "",
+      date: expense.date ? new Date(expense.date).toISOString().split("T")[0] : "",
+      description: expense.description || "",
     });
-    setEditingIncome(null);
-    setFormError(null);
-    setShowAddModal(true);
+    setEditError(null);
   };
 
-  const handleEdit = (income: Income) => {
-    setEditingIncome(income);
-    setFormData({
-      amount: income.amount?.toString() || "",
-      date: income.date ? new Date(income.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-      source: income.source || "",
-    });
-    setFormError(null);
-    setShowAddModal(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormLoading(true);
-    setFormError(null);
+    if (!editingExpense?._id) return;
+
+    setEditLoading(true);
+    setEditError(null);
 
     try {
-      const payload = {
-        userId,
-        amount: parseFloat(formData.amount),
-        date: new Date(formData.date).toISOString(),
-        source: formData.source,
-      };
-
-      if (editingIncome?._id) {
-        await updateIncome(editingIncome._id, payload);
-      } else {
-        await addIncome(payload);
-      }
-
-      setShowAddModal(false);
-      setEditingIncome(null);
-      await fetchIncomes();
+      await updateExpense(editingExpense._id, {
+        category: editForm.category,
+        amount: parseFloat(editForm.amount),
+        date: new Date(editForm.date).toISOString(),
+        description: editForm.description,
+      });
+      setEditingExpense(null);
+      await fetchExpenses();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to save income");
+      setEditError(err instanceof Error ? err.message : "Failed to update expense");
     } finally {
-      setFormLoading(false);
+      setEditLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this income record?")) return;
+    if (!confirm("Are you sure you want to delete this expense?")) return;
 
     setIsDeleting(id);
     try {
-      await deleteIncome(id);
-      await fetchIncomes();
+      await deleteExpense(id);
+      await fetchExpenses();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete income");
+      alert(err instanceof Error ? err.message : "Failed to delete expense");
     } finally {
       setIsDeleting(null);
     }
-  };
-
-  const getSourceColor = (source?: string) => {
-    if (!source) return sourceColors.Other;
-    const normalizedSource = source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
-    return sourceColors[normalizedSource] || sourceColors.Other;
   };
 
   return (
@@ -166,7 +147,7 @@ export default function IncomePage() {
         transition={{ duration: 0.5 }}
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6"
       >
-        {/* Total Income Card */}
+        {/* Total Expenses Card */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -176,15 +157,15 @@ export default function IncomePage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Total Income This Month
+                Total Expenses This Month
               </h2>
               <p className="text-4xl font-bold text-gray-900 dark:text-gray-100">
                 {formatCurrency(totalThisMonth)}
               </p>
             </div>
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors shadow-sm hover:shadow-md"
+            <Link
+              href="/expenses/add"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm hover:shadow-md"
             >
               <svg
                 className="w-5 h-5"
@@ -199,8 +180,8 @@ export default function IncomePage() {
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              Add Income
-            </button>
+              Add Expense
+            </Link>
           </div>
         </motion.div>
 
@@ -210,7 +191,7 @@ export default function IncomePage() {
           </div>
         )}
 
-        {/* Income Table */}
+        {/* Expenses Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -219,10 +200,10 @@ export default function IncomePage() {
         >
           {loading ? (
             <div className="p-8 text-center">
-              <div className="inline-block h-8 w-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading income records...</p>
+              <div className="inline-block h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading expenses...</p>
             </div>
-          ) : incomes.length === 0 ? (
+          ) : expenses.length === 0 ? (
             <div className="p-12 text-center">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400"
@@ -234,18 +215,18 @@ export default function IncomePage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-                No income records yet
+                No expenses yet
               </h3>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Get started by adding your first income record.
+                Get started by adding your first expense.
               </p>
-              <button
-                onClick={handleAdd}
-                className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+              <Link
+                href="/expenses/add"
+                className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
               >
                 <svg
                   className="w-5 h-5"
@@ -260,8 +241,8 @@ export default function IncomePage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                Add Your First Income
-              </button>
+                Add Your First Expense
+              </Link>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -272,7 +253,10 @@ export default function IncomePage() {
                       Date
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                      Source
+                      Category
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Description
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                       Amount
@@ -283,33 +267,39 @@ export default function IncomePage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                  {incomes.map((income, index) => (
+                  {expenses.map((expense, index) => (
                     <motion.tr
-                      key={income._id || index}
+                      key={expense._id || index}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {formatDate(income.date)}
+                        {formatDate(expense.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getSourceColor(income.source)}`}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            categoryColors[expense.category || "Other"] ||
+                            categoryColors.Other
+                          }`}
                         >
-                          {income.source || "Other"}
+                          {expense.category || "Other"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-green-600 dark:text-green-400">
-                        {formatCurrency(income.amount)}
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        {expense.description || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(expense.amount)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center gap-3">
                           <button
-                            onClick={() => handleEdit(income)}
+                            onClick={() => handleEdit(expense)}
                             className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                            title="Edit income"
+                            title="Edit expense"
                           >
                             <svg
                               className="w-5 h-5"
@@ -326,12 +316,12 @@ export default function IncomePage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => income._id && handleDelete(income._id)}
-                            disabled={isDeleting === income._id}
+                            onClick={() => expense._id && handleDelete(expense._id)}
+                            disabled={isDeleting === expense._id}
                             className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors disabled:opacity-50"
-                            title="Delete income"
+                            title="Delete expense"
                           >
-                            {isDeleting === income._id ? (
+                            {isDeleting === expense._id ? (
                               <div className="h-5 w-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                             ) : (
                               <svg
@@ -360,15 +350,15 @@ export default function IncomePage() {
         </motion.div>
       </motion.div>
 
-      {/* Add/Edit Modal */}
+      {/* Edit Modal */}
       <AnimatePresence>
-        {showAddModal && (
+        {editingExpense && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowAddModal(false)}
+            onClick={() => setEditingExpense(null)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -379,13 +369,10 @@ export default function IncomePage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {editingIncome ? "Edit Income" : "Add Income"}
+                  Edit Expense
                 </h3>
                 <button
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setEditingIncome(null);
-                  }}
+                  onClick={() => setEditingExpense(null)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <svg
@@ -403,19 +390,25 @@ export default function IncomePage() {
                   </svg>
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleEditSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                    Source
+                    Category
                   </label>
-                  <input
-                    type="text"
+                  <select
+                    value={editForm.category}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, category: e.target.value })
+                    }
                     required
-                    value={formData.source}
-                    onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                    placeholder="e.g., Salary, Freelance, Business"
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100"
-                  />
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
@@ -425,10 +418,12 @@ export default function IncomePage() {
                     type="number"
                     step="0.01"
                     required
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    value={editForm.amount}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, amount: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
                     placeholder="0.00"
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div>
@@ -438,41 +433,54 @@ export default function IncomePage() {
                   <input
                     type="date"
                     required
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-gray-100"
+                    value={editForm.date}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, date: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
                   />
                 </div>
-                {formError && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, description: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                    rows={3}
+                    placeholder="Add a description..."
+                  />
+                </div>
+                {editError && (
                   <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                    <p className="text-red-800 dark:text-red-200 text-sm">{formError}</p>
+                    <p className="text-red-800 dark:text-red-200 text-sm">
+                      {editError}
+                    </p>
                   </div>
                 )}
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowAddModal(false);
-                      setEditingIncome(null);
-                    }}
+                    onClick={() => setEditingExpense(null)}
                     className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={formLoading}
-                    className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors"
+                    disabled={editLoading}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors"
                   >
-                    {formLoading ? (
+                    {editLoading ? (
                       <span className="flex items-center justify-center gap-2">
                         <div className="h-4 w-4 border-2 border-white/60 border-t-white rounded-full animate-spin"></div>
                         Saving...
                       </span>
-                    ) : editingIncome ? (
-                      "Update Income"
                     ) : (
-                      "Add Income"
+                      "Save Changes"
                     )}
                   </button>
                 </div>
@@ -484,3 +492,4 @@ export default function IncomePage() {
     </>
   );
 }
+

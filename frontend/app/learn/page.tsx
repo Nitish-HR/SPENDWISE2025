@@ -249,6 +249,9 @@ export default function LearnPage() {
     [insight, expenses, goals]
   );
 
+  const featuredLessons = generalLessons.slice(0, 3);
+  const remainingLessons = generalLessons.slice(3);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -276,15 +279,73 @@ export default function LearnPage() {
       transition={{ duration: 0.5 }}
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
     >
-      {/* Header */}
-      <header>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Learn
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
-          Smart lessons tailored to your financial habits.
-        </p>
-      </header>
+      {/* Hero Banner */}
+      <section className="rounded-2xl overflow-hidden bg-gradient-to-r from-green-500 via-blue-500 to-indigo-500 text-white shadow-md">
+        <div className="px-6 sm:px-10 py-8 sm:py-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-2xl">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+              Discover how small savings can grow exponentially over time.
+            </h1>
+            <p className="text-sm sm:text-base text-white/90">
+              Turn insights into action with bite-sized lessons on money, goals, and investing.
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            <button className="inline-flex items-center gap-2 rounded-xl bg-white text-blue-700 hover:bg-blue-50 px-6 py-3 text-sm sm:text-base font-semibold shadow-sm transition-colors">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">
+                ▶
+              </span>
+              Start Learning
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Lessons (template cards) */}
+      <section className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {featuredLessons.map((lesson, index) => (
+            <motion.article
+              key={`featured-${lesson.title}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.08 }}
+              className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-4 text-xs">
+                <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-3 py-1 font-medium">
+                  {lesson.tag.split(" ")[0] || "Basics"}
+                </span>
+                <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l2 2m5-4a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  {lesson.readingTime} min read
+                </span>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                {lesson.title}
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 flex-1 mb-4">
+                {lesson.content.split("\n")[0]}
+              </p>
+              <button className="mt-auto inline-flex w-full items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 text-sm transition-colors">
+                Read More
+              </button>
+            </motion.article>
+          ))}
+        </div>
+      </section>
 
       {/* Personalized Lessons */}
       {personalizedLessons.length > 0 && (
@@ -319,7 +380,7 @@ export default function LearnPage() {
           Essential financial knowledge for building wealth
         </p>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {generalLessons.map((lesson, index) => (
+          {remainingLessons.map((lesson, index) => (
             <LessonCard
               key={`general-${index}`}
               title={lesson.title}
